@@ -23,12 +23,15 @@ export default function StatusPage() {
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [mounted, setMounted] = useState(false);
   const [uptimeData, setUptimeData] = useState<number[]>([]);
+  const [providerData, setProviderData] = useState<Record<string, 'online' | 'degraded' | 'offline'>>({});
+  const [providerCachedAt, setProviderCachedAt] = useState<string | null>(null);
 
   const checkStatus = async () => {
     // 1. Check Caffeine API
     try {
       const start = Date.now();
       const res = await fetch('https://caffeine.synqholdings.com/status', { cache: 'no-store' });
+      const data = await res.json();
       const latency = Date.now() - start;
       
       setServices(prev => prev.map(s => s.id === 'api' ? { 
@@ -36,6 +39,11 @@ export default function StatusPage() {
         status: res.ok ? 'operational' : 'degraded',
         latency: `${latency}ms`
       } : s));
+
+      if (data.health?.providers) {
+        setProviderData(data.health.providers);
+        setProviderCachedAt(data.cached_at);
+      }
     } catch (e) {
       setServices(prev => prev.map(s => s.id === 'api' ? { ...s, status: 'outage', latency: 'Error' } : s));
     }
@@ -102,6 +110,35 @@ export default function StatusPage() {
         </div>
 
         <DiscordBanner />
+
+        <div className="provider-section" style={{ marginTop: '4rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <div className="section-title" style={{ marginBottom: 0 }}>Content Providers</div>
+            {providerCachedAt && (
+              <span style={{ fontSize: '0.7rem', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                Last verified: {new Date(providerCachedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
+          </div>
+          <div className="provider-grid">
+            {Object.entries(providerData).map(([id, status]) => (
+              <div key={id} className="provider-card">
+                <div className="provider-meta">
+                  <span className="provider-name">{id}</span>
+                  <span className={`provider-dot status-${status === 'online' ? 'operational' : status}`} />
+                </div>
+                <span className={`provider-status status-${status === 'online' ? 'operational' : status}`}>
+                  {status}
+                </span>
+              </div>
+            ))}
+            {Object.keys(providerData).length === 0 && (
+              <div className="service-info" style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}>
+                <p>Loading provider health data...</p>
+              </div>
+            )}
+          </div>
+        </div>
 
         <div className="uptime-history">
           <div className="section-title">Uptime History (Last 90 Days)</div>

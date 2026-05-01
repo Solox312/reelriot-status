@@ -165,9 +165,61 @@ body {
 .status-degraded { color: var(--warning); }
 .status-outage { color: var(--destructive); }
 
-.uptime-history {
-  margin-top: 4rem;
+.provider-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
 }
+
+.provider-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  padding: 1rem;
+  border-radius: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.provider-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.provider-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.provider-name {
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.provider-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.provider-dot.status-operational { background: var(--success); }
+.provider-dot.status-degraded { background: var(--warning); }
+.provider-dot.status-offline { background: var(--destructive); }
+
+.provider-status {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.provider-status.status-operational { color: var(--success); }
+.provider-status.status-degraded { color: var(--warning); }
+.provider-status.status-offline { color: var(--destructive); }
 
 .section-title {
   font-size: 0.75rem;
