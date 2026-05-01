@@ -16,7 +16,7 @@ export default function DiscordBanner() {
         </div>
       </div>
       <a 
-        href="https://discord.gg/mT8WJKzrtv" 
+        href="https://discord.gg/3QYKXrwtwM" 
         target="_blank" 
         rel="noopener noreferrer"
         className="discord-button"

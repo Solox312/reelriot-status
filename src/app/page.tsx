@@ -16,11 +16,11 @@ interface Service {
 
 export default function StatusPage() {
   const [services, setServices] = useState<Service[]>([
-    { id: 'api', name: 'Caffeine API', description: 'Core application services', status: 'operational', latency: '...' },
-    { id: 'web', name: 'Main Platform', description: 'reelriot.app', status: 'operational', latency: '...' },
-    { id: 'cdn', name: 'Content Delivery', description: 'HLS stream proxying', status: 'operational', latency: '...' },
+    { id: 'api', name: 'Main API Gateway', description: 'Core infrastructure handling all requests', status: 'operational', latency: '0ms' },
+    { id: 'web', name: 'Web Platform', description: 'Primary streaming interface (reelriot.app)', status: 'operational', latency: '0ms' },
+    { id: 'cdn', name: 'Cloudflare CDN Proxy', description: 'Global content delivery and proxying', status: 'operational', latency: '0ms' },
   ]);
-  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [mounted, setMounted] = useState(false);
   const [uptimeData, setUptimeData] = useState<number[]>([]);
   const [providerData, setProviderData] = useState<Record<string, 'online' | 'degraded' | 'offline'>>({});
@@ -48,20 +48,21 @@ export default function StatusPage() {
       setServices(prev => prev.map(s => s.id === 'api' ? { ...s, status: 'outage', latency: 'Error' } : s));
     }
 
-    // 2. Check Main Web (Simplified ping)
+    // 2. Check Web Platform
     try {
       const start = Date.now();
-      await fetch('https://www.reelriot.app', { mode: 'no-cors', cache: 'no-store' });
+      const res = await fetch('https://reelriot.app', { cache: 'no-store' });
+      // If we get any response, the server is "up" (even if it's a 403/404 from a browser)
       const latency = Date.now() - start;
       setServices(prev => prev.map(s => s.id === 'web' ? { ...s, status: 'operational', latency: `${latency}ms` } : s));
     } catch (e) {
-      // no-cors might cause issues but if it resolves, it's up
+      setServices(prev => prev.map(s => s.id === 'web' ? { ...s, status: 'degraded', latency: 'Error' } : s));
     }
 
     // 3. Check Cloudflare CDN Proxy
     try {
       const start = Date.now();
-      await fetch('https://caffeine-proxy.solox312.workers.dev', { mode: 'no-cors', cache: 'no-store' });
+      await fetch('https://caffeine-proxy.solox312.workers.dev', { cache: 'no-store' });
       const latency = Date.now() - start;
       setServices(prev => prev.map(s => s.id === 'cdn' ? { ...s, status: 'operational', latency: `${latency}ms` } : s));
     } catch (e) {
@@ -163,7 +164,11 @@ export default function StatusPage() {
       <div className="footer">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
           <RefreshCcw className="w-3 h-3" />
-          <span>Last updated {lastUpdated.toLocaleTimeString()}</span>
+          <p>
+            Last updated: {lastUpdated ? lastUpdated.toLocaleTimeString() : 'Connecting...'} 
+            <span className="dot-divider" /> 
+            Auto-refreshing every 30s
+          </p>
         </div>
         <p>&copy; 2026 Reelriot. Back to <a href="https://reelriot.app">reelriot.app</a></p>
       </div>
