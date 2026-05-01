@@ -27,46 +27,45 @@ export default function StatusPage() {
   const [providerCachedAt, setProviderCachedAt] = useState<string | null>(null);
 
   const checkStatus = async () => {
-    // 1. Check Caffeine API
+    // Single source of truth: Caffeine API handles all the heavy lifting
     try {
       const start = Date.now();
       const res = await fetch('https://caffeine.synqholdings.com/status', { cache: 'no-store' });
       const data = await res.json();
       const latency = Date.now() - start;
       
-      setServices(prev => prev.map(s => s.id === 'api' ? { 
-        ...s, 
-        status: res.ok ? 'operational' : 'degraded',
-        latency: `${latency}ms`
-      } : s));
+      const health = data.health || {};
 
-      if (data.health?.providers) {
-        setProviderData(data.health.providers);
+      setServices([
+        { 
+          id: 'api', 
+          name: 'Main API Gateway', 
+          description: 'Core infrastructure handling all requests', 
+          status: res.ok ? 'operational' : 'degraded',
+          latency: `${latency}ms`
+        },
+        { 
+          id: 'web', 
+          name: 'Web Platform', 
+          description: 'Primary streaming interface (reelriot.app)', 
+          status: health.web?.status || 'degraded',
+          latency: health.web?.latency || 'Error'
+        },
+        { 
+          id: 'cdn', 
+          name: 'Cloudflare CDN Proxy', 
+          description: 'Global content delivery and proxying', 
+          status: health.cdn?.status || 'degraded',
+          latency: health.cdn?.latency || 'Error'
+        }
+      ]);
+
+      if (health.providers) {
+        setProviderData(health.providers);
         setProviderCachedAt(data.cached_at);
       }
     } catch (e) {
-      setServices(prev => prev.map(s => s.id === 'api' ? { ...s, status: 'outage', latency: 'Error' } : s));
-    }
-
-    // 2. Check Web Platform
-    try {
-      const start = Date.now();
-      const res = await fetch('https://reelriot.app', { cache: 'no-store' });
-      // If we get any response, the server is "up" (even if it's a 403/404 from a browser)
-      const latency = Date.now() - start;
-      setServices(prev => prev.map(s => s.id === 'web' ? { ...s, status: 'operational', latency: `${latency}ms` } : s));
-    } catch (e) {
-      setServices(prev => prev.map(s => s.id === 'web' ? { ...s, status: 'degraded', latency: 'Error' } : s));
-    }
-
-    // 3. Check Cloudflare CDN Proxy
-    try {
-      const start = Date.now();
-      await fetch('https://caffeine-proxy.solox312.workers.dev', { cache: 'no-store' });
-      const latency = Date.now() - start;
-      setServices(prev => prev.map(s => s.id === 'cdn' ? { ...s, status: 'operational', latency: `${latency}ms` } : s));
-    } catch (e) {
-      setServices(prev => prev.map(s => s.id === 'cdn' ? { ...s, status: 'degraded', latency: 'Error' } : s));
+      setServices(prev => prev.map(s => ({ ...s, status: 'outage', latency: 'Error' })));
     }
 
     setLastUpdated(new Date());
