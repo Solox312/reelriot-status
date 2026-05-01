@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   description: "Real-time infrastructure health and incident reports for Reelriot.",
 };
 
+import StatusFooter from "@/components/StatusFooter";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -24,7 +26,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body>{children}</body>
+      <body style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+        <div style={{ flex: 1 }}>
+          {children}
+        </div>
+        <StatusFooter />
+      </body>
     </html>
   );
 }
