@@ -252,6 +252,16 @@ body {
   background: var(--muted);
 }
 
+.uptime-bar.status-outage {
+  background: var(--destructive);
+  opacity: 1 !important;
+}
+
+.uptime-bar.status-degraded {
+  background: var(--warning);
+  opacity: 1 !important;
+}
+
 .discord-banner {
   margin-top: 3rem;
   padding: 2rem;

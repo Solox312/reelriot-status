@@ -22,7 +22,7 @@ export default function StatusPage() {
   ]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [uptimeData, setUptimeData] = useState<number[]>([]);
+  const [uptimeData, setUptimeData] = useState<{ date: string; uptime: number }[]>([]);
   const [providerData, setProviderData] = useState<Record<string, 'online' | 'degraded' | 'offline'>>({});
   const [providerCachedAt, setProviderCachedAt] = useState<string | null>(null);
 
@@ -71,12 +71,26 @@ export default function StatusPage() {
     setLastUpdated(new Date());
   };
 
+  const fetchUptime = async () => {
+    try {
+      const res = await fetch('https://caffeine.synqholdings.com/status/uptime', { cache: 'no-store' });
+      const data = await res.json();
+      setUptimeData(data);
+    } catch (e) {
+      console.error("Failed to fetch uptime:", e);
+    }
+  };
+
   useEffect(() => {
     setMounted(true);
-    setUptimeData(Array.from({ length: 90 }, () => 0.2 + (Math.random() * 0.8)));
     checkStatus();
-    const interval = setInterval(checkStatus, 30000); // Check every 30s
-    return () => clearInterval(interval);
+    fetchUptime();
+    const statusInterval = setInterval(checkStatus, 30000); // Check status every 30s
+    const uptimeInterval = setInterval(fetchUptime, 300000); // Check uptime every 5m
+    return () => {
+      clearInterval(statusInterval);
+      clearInterval(uptimeInterval);
+    };
   }, []);
 
   const allOperational = services.every(s => s.status === 'operational');
@@ -143,18 +157,21 @@ export default function StatusPage() {
         <div className="uptime-history">
           <div className="section-title">Uptime History (Last 90 Days)</div>
           <div className="uptime-bars">
-            {Array.from({ length: 90 }).map((_, i) => (
+            {uptimeData.map((day, i) => (
               <div 
                 key={i} 
-                className="uptime-bar" 
-                style={{ opacity: mounted ? uptimeData[i] : 0.2 }} 
-                title={`Day ${90 - i}: 100%`}
+                className={`uptime-bar ${day.uptime === 0 ? 'status-outage' : (day.uptime < 0.9 ? 'status-degraded' : '')}`}
+                style={{ opacity: mounted ? (day.uptime === 0 ? 1 : day.uptime) : 0.2 }} 
+                title={`${day.date}: ${Math.round(day.uptime * 100)}% uptime`}
               />
+            ))}
+            {uptimeData.length === 0 && Array.from({ length: 90 }).map((_, i) => (
+               <div key={i} className="uptime-bar" style={{ opacity: 0.1 }} />
             ))}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.75rem', fontSize: '0.75rem', color: '#71717a', fontWeight: 'bold' }}>
             <span>90 days ago</span>
-            <span>100% uptime</span>
+            <span>{uptimeData.length > 0 ? (uptimeData.every(d => d.uptime > 0.9) ? '100% uptime' : 'System Operational') : 'Loading history...'}</span>
             <span>Today</span>
           </div>
         </div>
