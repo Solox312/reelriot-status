@@ -138,10 +138,10 @@ export default function StatusPage() {
             {Object.entries(providerData).map(([id, status]) => (
               <div key={id} className="provider-card">
                 <div className="provider-meta">
-                  <span className="provider-name">{id}</span>
+                  <span className="provider-name" style={{ textTransform: 'capitalize' }}>{id}</span>
                   <span className={`provider-dot status-${status === 'online' ? 'operational' : status}`} />
                 </div>
-                <span className={`provider-status status-${status === 'online' ? 'operational' : status}`}>
+                <span className={`provider-status status-${status === 'online' ? 'operational' : status}`} style={{ textTransform: 'uppercase' }}>
                   {status}
                 </span>
               </div>
@@ -153,7 +153,7 @@ export default function StatusPage() {
             )}
           </div>
         </div>
-
+ 
         <div className="uptime-history">
           <div className="section-title">Uptime History (Last 90 Days)</div>
           <div className="uptime-bars">
@@ -171,7 +171,7 @@ export default function StatusPage() {
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.75rem', fontSize: '0.75rem', color: '#71717a', fontWeight: 'bold' }}>
             <span>90 days ago</span>
-            <span>{uptimeData.length > 0 ? (uptimeData.every(d => d.uptime > 0.9) ? '100% uptime' : 'System Operational') : 'Loading history...'}</span>
+            <span>{uptimeData.length > 0 ? (uptimeData.reduce((acc, d) => acc + d.uptime, 0) / uptimeData.length > 0.99 ? '99.9% Uptime' : 'System Operational') : 'Loading history...'}</span>
             <span>Today</span>
           </div>
         </div>
