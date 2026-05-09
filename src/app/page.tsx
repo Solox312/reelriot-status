@@ -24,13 +24,14 @@ export default function StatusPage() {
   const [mounted, setMounted] = useState(false);
   const [uptimeData, setUptimeData] = useState<{ date: string; uptime: number }[]>([]);
   const [providerData, setProviderData] = useState<Record<string, 'online' | 'degraded' | 'offline'>>({});
+  const [circuitData, setCircuitData] = useState<Record<string, any>>({});
   const [providerCachedAt, setProviderCachedAt] = useState<string | null>(null);
 
   const checkStatus = async () => {
     // Single source of truth: Caffeine API handles all the heavy lifting
     try {
       const start = Date.now();
-      const res = await fetch('https://caffeine.synqholdings.com/status', { cache: 'no-store' });
+      const res = await fetch('https://caffeine.synqholdings.com/status/health', { cache: 'no-store' });
       const data = await res.json();
       const latency = Date.now() - start;
       
@@ -41,7 +42,7 @@ export default function StatusPage() {
           id: 'api', 
           name: 'Main API Gateway', 
           description: 'Core infrastructure handling all requests', 
-          status: res.ok ? 'operational' : 'degraded',
+          status: data.status === 'ok' ? 'operational' : 'outage',
           latency: `${latency}ms`
         },
         { 
@@ -63,6 +64,10 @@ export default function StatusPage() {
       if (health.providers) {
         setProviderData(health.providers);
         setProviderCachedAt(data.cached_at);
+      }
+
+      if (data.circuits) {
+        setCircuitData(data.circuits);
       }
     } catch (e) {
       setServices(prev => prev.map(s => ({ ...s, status: 'outage', latency: 'Error' })));
@@ -146,9 +151,29 @@ export default function StatusPage() {
                 </span>
               </div>
             ))}
-            {Object.keys(providerData).length === 0 && (
-              <div className="service-info" style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}>
-                <p>Loading provider health data...</p>
+          </div>
+        </div>
+
+        <div className="circuits-section" style={{ marginTop: '4rem' }}>
+          <div className="section-title">Circuit Breakers (Fail-safe)</div>
+          <p style={{ color: '#71717a', fontSize: '0.85rem', marginBottom: '1.5rem', maxWidth: '600px' }}>
+            Our infrastructure automatically throttles connections to external AI and search APIs if they become slow or rate-limited to maintain core system stability.
+          </p>
+          <div className="provider-grid">
+            {Object.entries(circuitData).map(([id, info]) => (
+              <div key={id} className="provider-card" style={{ border: info.state === 'OPEN' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255,255,255,0.05)' }}>
+                <div className="provider-meta">
+                  <span className="provider-name" style={{ fontSize: '0.8rem' }}>{id}</span>
+                  <span className={`provider-dot status-${info.state === 'CLOSED' ? 'operational' : (info.state === 'OPEN' ? 'outage' : 'degraded')}`} />
+                </div>
+                <span className={`provider-status status-${info.state === 'CLOSED' ? 'operational' : (info.state === 'OPEN' ? 'outage' : 'degraded')}`} style={{ textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                  {info.state}
+                </span>
+              </div>
+            ))}
+            {Object.keys(circuitData).length === 0 && (
+              <div className="service-info" style={{ gridColumn: '1 / -1', textAlign: 'center', opacity: 0.5 }}>
+                No active circuits found.
               </div>
             )}
           </div>

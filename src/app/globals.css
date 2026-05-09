@@ -208,7 +208,8 @@ body {
 
 .provider-dot.status-operational { background: var(--success); }
 .provider-dot.status-degraded { background: var(--warning); }
-.provider-dot.status-offline { background: var(--destructive); }
+.provider-dot.status-half-open { background: var(--warning); }
+.provider-dot.status-offline, .provider-dot.status-outage { background: var(--destructive); }
 
 .provider-status {
   font-size: 0.65rem;
@@ -219,7 +220,8 @@ body {
 
 .provider-status.status-operational { color: var(--success); }
 .provider-status.status-degraded { color: var(--warning); }
-.provider-status.status-offline { color: var(--destructive); }
+.provider-status.status-half-open { color: var(--warning); }
+.provider-status.status-offline, .provider-status.status-outage { color: var(--destructive); }
 
 .section-title {
   font-size: 0.75rem;
