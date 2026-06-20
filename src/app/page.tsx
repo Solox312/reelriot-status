@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import ServiceStatus from '@/components/ServiceStatus';
-import { ShieldCheck, RefreshCcw } from 'lucide-react';
+import { RefreshCcw } from 'lucide-react';
 import Image from 'next/image';
 import DiscordBanner from '@/components/DiscordBanner';
 
@@ -24,7 +24,7 @@ export default function StatusPage() {
   const [mounted, setMounted] = useState(false);
   const [uptimeData, setUptimeData] = useState<{ date: string; uptime: number }[]>([]);
   const [providerData, setProviderData] = useState<Record<string, 'online' | 'degraded' | 'offline'>>({});
-  const [circuitData, setCircuitData] = useState<Record<string, any>>({});
+  const [circuitData, setCircuitData] = useState<Record<string, { state: string }>>({});
   const [providerCachedAt, setProviderCachedAt] = useState<string | null>(null);
 
   const checkStatus = async () => {
@@ -69,7 +69,7 @@ export default function StatusPage() {
       if (data.circuits) {
         setCircuitData(data.circuits);
       }
-    } catch (e) {
+    } catch {
       setServices(prev => prev.map(s => ({ ...s, status: 'outage', latency: 'Error' })));
     }
 
@@ -87,14 +87,44 @@ export default function StatusPage() {
   };
 
   useEffect(() => {
-    setMounted(true);
-    checkStatus();
-    fetchUptime();
-    const statusInterval = setInterval(checkStatus, 30000); // Check status every 30s
-    const uptimeInterval = setInterval(fetchUptime, 300000); // Check uptime every 5m
+    // Avoid calling setState synchronously during render phase
+    const timer = setTimeout(() => {
+      setMounted(true);
+      checkStatus();
+      fetchUptime();
+    }, 0);
+
+    let statusInterval: ReturnType<typeof setInterval>;
+    let uptimeInterval: ReturnType<typeof setInterval>;
+
+    const startIntervals = () => {
+      stopIntervals();
+      statusInterval = setInterval(checkStatus, 30000); // Check status every 30s
+      uptimeInterval = setInterval(fetchUptime, 300000); // Check uptime every 5m
+    };
+
+    const stopIntervals = () => {
+      if (statusInterval) clearInterval(statusInterval);
+      if (uptimeInterval) clearInterval(uptimeInterval);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkStatus();
+        fetchUptime();
+        startIntervals();
+      } else {
+        stopIntervals();
+      }
+    };
+
+    startIntervals();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
-      clearInterval(statusInterval);
-      clearInterval(uptimeInterval);
+      clearTimeout(timer);
+      stopIntervals();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
@@ -202,8 +232,8 @@ export default function StatusPage() {
         </div>
       </div>
 
-      <div className="footer">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+      <div className="footer" style={{ paddingBottom: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
           <RefreshCcw className="w-3 h-3" />
           <p>
             Last updated: {lastUpdated ? lastUpdated.toLocaleTimeString() : 'Connecting...'} 
@@ -211,7 +241,6 @@ export default function StatusPage() {
             Auto-refreshing every 30s
           </p>
         </div>
-        <p>&copy; 2026 Reelriot. Back to <a href="https://reelriot.app">reelriot.app</a></p>
       </div>
     </main>
   );
