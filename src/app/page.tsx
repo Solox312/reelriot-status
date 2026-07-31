@@ -61,12 +61,12 @@ export default function StatusPage() {
         }
       ]);
 
-      if (health.providers) {
+      if (health.providers && typeof health.providers === 'object') {
         setProviderData(health.providers);
-        setProviderCachedAt(data.cached_at);
+        setProviderCachedAt(data.cached_at || null);
       }
 
-      if (data.circuits) {
+      if (data.circuits && typeof data.circuits === 'object') {
         setCircuitData(data.circuits);
       }
     } catch {
@@ -79,8 +79,14 @@ export default function StatusPage() {
   const fetchUptime = async () => {
     try {
       const res = await fetch('https://caffeine.synqholdings.com/status/uptime', { cache: 'no-store' });
+      if (!res.ok) {
+        console.warn(`[Uptime] API returned HTTP ${res.status}`);
+        return;
+      }
       const data = await res.json();
-      setUptimeData(data);
+      if (Array.isArray(data)) {
+        setUptimeData(data);
+      }
     } catch (e) {
       console.error("Failed to fetch uptime:", e);
     }
@@ -170,7 +176,7 @@ export default function StatusPage() {
             )}
           </div>
           <div className="provider-grid">
-            {Object.entries(providerData).map(([id, status]) => (
+            {Object.entries(providerData || {}).map(([id, status]) => (
               <div key={id} className="provider-card">
                 <div className="provider-meta">
                   <span className="provider-name" style={{ textTransform: 'capitalize' }}>{id}</span>
@@ -190,43 +196,53 @@ export default function StatusPage() {
             Our infrastructure automatically throttles connections to external AI and search APIs if they become slow or rate-limited to maintain core system stability.
           </p>
           <div className="provider-grid">
-            {Object.entries(circuitData).map(([id, info]) => (
-              <div key={id} className="provider-card" style={{ border: info.state === 'OPEN' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255,255,255,0.05)' }}>
-                <div className="provider-meta">
-                  <span className="provider-name" style={{ fontSize: '0.8rem' }}>{id}</span>
-                  <span className={`provider-dot status-${info.state === 'CLOSED' ? 'operational' : (info.state === 'OPEN' ? 'outage' : 'degraded')}`} />
+            {Object.entries(circuitData || {}).map(([id, info]) => {
+              const state = info?.state || 'UNKNOWN';
+              return (
+                <div key={id} className="provider-card" style={{ border: state === 'OPEN' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255,255,255,0.05)' }}>
+                  <div className="provider-meta">
+                    <span className="provider-name" style={{ fontSize: '0.8rem' }}>{id}</span>
+                    <span className={`provider-dot status-${state === 'CLOSED' ? 'operational' : (state === 'OPEN' ? 'outage' : 'degraded')}`} />
+                  </div>
+                  <span className={`provider-status status-${state === 'CLOSED' ? 'operational' : (state === 'OPEN' ? 'outage' : 'degraded')}`} style={{ textTransform: 'uppercase', fontSize: '0.7rem' }}>
+                    {state}
+                  </span>
                 </div>
-                <span className={`provider-status status-${info.state === 'CLOSED' ? 'operational' : (info.state === 'OPEN' ? 'outage' : 'degraded')}`} style={{ textTransform: 'uppercase', fontSize: '0.7rem' }}>
-                  {info.state}
-                </span>
-              </div>
-            ))}
-            {Object.keys(circuitData).length === 0 && (
+              );
+            })}
+            {Object.keys(circuitData || {}).length === 0 && (
               <div className="service-info" style={{ gridColumn: '1 / -1', textAlign: 'center', opacity: 0.5 }}>
                 No active circuits found.
               </div>
             )}
           </div>
         </div>
- 
+
         <div className="uptime-history">
           <div className="section-title">Uptime History (Last 90 Days)</div>
           <div className="uptime-bars">
-            {uptimeData.map((day, i) => (
-              <div 
-                key={i} 
-                className={`uptime-bar ${day.uptime === 0 ? 'status-outage' : (day.uptime < 0.9 ? 'status-degraded' : '')}`}
-                style={{ opacity: mounted ? (day.uptime === 0 ? 1 : day.uptime) : 0.2 }} 
-                title={`${day.date}: ${Math.round(day.uptime * 100)}% uptime`}
-              />
-            ))}
-            {uptimeData.length === 0 && Array.from({ length: 90 }).map((_, i) => (
-               <div key={i} className="uptime-bar" style={{ opacity: 0.1 }} />
-            ))}
+            {Array.isArray(uptimeData) && uptimeData.length > 0 ? (
+              uptimeData.map((day, i) => (
+                <div 
+                  key={i} 
+                  className={`uptime-bar ${day.uptime === 0 ? 'status-outage' : (day.uptime < 0.9 ? 'status-degraded' : '')}`}
+                  style={{ opacity: mounted ? (day.uptime === 0 ? 1 : day.uptime) : 0.2 }} 
+                  title={`${day.date}: ${Math.round(day.uptime * 100)}% uptime`}
+                />
+              ))
+            ) : (
+              Array.from({ length: 90 }).map((_, i) => (
+                <div key={i} className="uptime-bar" style={{ opacity: 0.1 }} />
+              ))
+            )}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.75rem', fontSize: '0.75rem', color: '#71717a', fontWeight: 'bold' }}>
             <span>90 days ago</span>
-            <span>{uptimeData.length > 0 ? (uptimeData.reduce((acc, d) => acc + d.uptime, 0) / uptimeData.length > 0.99 ? '99.9% Uptime' : 'System Operational') : 'Loading history...'}</span>
+            <span>
+              {Array.isArray(uptimeData) && uptimeData.length > 0 
+                ? (uptimeData.reduce((acc, d) => acc + (d.uptime || 0), 0) / uptimeData.length > 0.99 ? '99.9% Uptime' : 'System Operational') 
+                : 'Loading history...'}
+            </span>
             <span>Today</span>
           </div>
         </div>
