@@ -18,7 +18,6 @@ export default function StatusPage() {
   const [services, setServices] = useState<Service[]>([
     { id: 'api', name: 'Main API Gateway', description: 'Core infrastructure handling all requests', status: 'operational', latency: '0ms' },
     { id: 'web', name: 'Web Platform', description: 'Primary streaming interface (reelriot.app)', status: 'operational', latency: '0ms' },
-    { id: 'cdn', name: 'Cloudflare CDN Proxy', description: 'Global content delivery and proxying', status: 'operational', latency: '0ms' },
   ]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -51,13 +50,6 @@ export default function StatusPage() {
           description: 'Primary streaming interface (reelriot.app)', 
           status: health.web?.status || 'degraded',
           latency: health.web?.latency || 'Error'
-        },
-        { 
-          id: 'cdn', 
-          name: 'Cloudflare CDN Proxy', 
-          description: 'Global content delivery and proxying', 
-          status: health.cdn?.status || 'degraded',
-          latency: health.cdn?.latency || 'Error'
         }
       ]);
 
