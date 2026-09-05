@@ -13,12 +13,46 @@
   --muted-foreground: #a1a1aa;
   --accent: #27272a;
   --accent-foreground: #fafafa;
-  --destructive: #ef4444;
+  --destructive: var(--color-danger-default);
   --destructive-foreground: #fafafa;
-  --success: #10b981;
-  --warning: #f59e0b;
+  --success: var(--color-success-default);
+  --warning: var(--color-warning-default);
   --border: #27272a;
   --radius: 0.75rem;
+
+  /* Semantic Color Architecture (IEC/IEEE 82079-1 & WCAG 2.1 AA Compliant)
+     5-Step Shade Ramps: lightest (100), light (300), default (500), dark (700), darkest (900) */
+  --color-info-lightest: #e0f2fe;
+  --color-info-light: #7dd3fc;
+  --color-info-default: #0ea5e9;
+  --color-info-dark: #0369a1;
+  --color-info-darkest: #082f49;
+  --color-info-surface: rgba(14, 165, 233, 0.12);
+  --color-info-border: rgba(14, 165, 233, 0.28);
+
+  --color-success-lightest: #dcfce7;
+  --color-success-light: #86efac;
+  --color-success-default: #10b981;
+  --color-success-dark: #047857;
+  --color-success-darkest: #064e3b;
+  --color-success-surface: rgba(16, 185, 129, 0.12);
+  --color-success-border: rgba(16, 185, 129, 0.28);
+
+  --color-warning-lightest: #fef3c7;
+  --color-warning-light: #fcd34d;
+  --color-warning-default: #f59e0b;
+  --color-warning-dark: #b45309;
+  --color-warning-darkest: #78350f;
+  --color-warning-surface: rgba(245, 158, 11, 0.12);
+  --color-warning-border: rgba(245, 158, 11, 0.28);
+
+  --color-danger-lightest: #fee2e2;
+  --color-danger-light: #fca5a5;
+  --color-danger-default: #ef4444;
+  --color-danger-dark: #b91c1c;
+  --color-danger-darkest: #7f1d1d;
+  --color-danger-surface: rgba(239, 68, 68, 0.12);
+  --color-danger-border: rgba(239, 68, 68, 0.28);
 }
 
 * {
@@ -77,11 +111,11 @@ body {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: rgba(16, 185, 129, 0.1);
-  color: var(--success);
+  background: var(--color-success-surface);
+  color: var(--color-success-default);
   padding: 0.5rem 1.25rem;
   border-radius: 9999px;
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  border: 1px solid var(--color-success-border);
   font-size: 0.875rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -97,15 +131,15 @@ body {
 }
 
 .global-status.status-degraded-bg {
-  background: rgba(245, 158, 11, 0.1);
-  color: var(--warning);
-  border-color: rgba(245, 158, 11, 0.2);
+  background: var(--color-warning-surface);
+  color: var(--color-warning-default);
+  border-color: var(--color-warning-border);
 }
 
 .global-status.status-outage-bg {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--destructive);
-  border-color: rgba(239, 68, 68, 0.2);
+  background: var(--color-danger-surface);
+  color: var(--color-danger-default);
+  border-color: var(--color-danger-border);
 }
 
 .pulse.pulse-warning {
