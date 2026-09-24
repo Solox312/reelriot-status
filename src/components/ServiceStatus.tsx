@@ -1,10 +1,10 @@
 import React from 'react';
-import { CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
+import { CheckCircle2, AlertCircle, XCircle, Wrench } from 'lucide-react';
 
 interface ServiceStatusProps {
   name: string;
   description: string;
-  status: 'operational' | 'degraded' | 'outage';
+  status: 'operational' | 'degraded' | 'outage' | 'maintenance';
   latency?: string;
 }
 
@@ -14,6 +14,7 @@ export default function ServiceStatus({ name, description, status, latency }: Se
       case 'operational': return <CheckCircle2 className="w-5 h-5" />;
       case 'degraded': return <AlertCircle className="w-5 h-5" />;
       case 'outage': return <XCircle className="w-5 h-5" />;
+      case 'maintenance': return <Wrench className="w-5 h-5" />;
     }
   };
 

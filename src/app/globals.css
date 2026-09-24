@@ -198,6 +198,7 @@ body {
 .status-operational { color: var(--success); }
 .status-degraded { color: var(--warning); }
 .status-outage { color: var(--destructive); }
+.status-maintenance { color: var(--warning); }
 
 .provider-grid {
   display: grid;

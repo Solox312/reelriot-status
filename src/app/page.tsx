@@ -10,7 +10,7 @@ interface Service {
   id: string;
   name: string;
   description: string;
-  status: 'operational' | 'degraded' | 'outage';
+  status: 'operational' | 'degraded' | 'outage' | 'maintenance';
   latency: string;
 }
 
@@ -39,7 +39,15 @@ interface MaintenanceData {
   timestamp: string;
 }
 
-const CAFFEINE_URL = (process.env.NEXT_PUBLIC_CAFFEINE_API_URL || 'https://caffeine.synqholdings.com').replace(/\/$/, '');
+function getCaffeineUrl(): string {
+  if (process.env.NEXT_PUBLIC_CAFFEINE_API_URL) {
+    return process.env.NEXT_PUBLIC_CAFFEINE_API_URL.replace(/\/$/, '');
+  }
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return 'http://localhost:3000';
+  }
+  return 'https://caffeine.synqholdings.com';
+}
 
 export default function StatusPage() {
   const [services, setServices] = useState<Service[]>([
@@ -56,9 +64,10 @@ export default function StatusPage() {
 
   const checkStatus = async () => {
     // Single source of truth: Caffeine API handles all the heavy lifting
+    const caffeineUrl = getCaffeineUrl();
     try {
       const start = Date.now();
-      const res = await fetch(`${CAFFEINE_URL}/status/health`, { cache: 'no-store' });
+      const res = await fetch(`${caffeineUrl}/status/health`, { cache: 'no-store' });
       const data = await res.json();
       const latency = Date.now() - start;
       
@@ -97,8 +106,9 @@ export default function StatusPage() {
   };
 
   const fetchMaintenance = async () => {
+    const caffeineUrl = getCaffeineUrl();
     try {
-      const res = await fetch(`${CAFFEINE_URL}/status/maintenance`, { cache: 'no-store' });
+      const res = await fetch(`${caffeineUrl}/status/maintenance`, { cache: 'no-store' });
       if (res.ok) {
         const data: MaintenanceData = await res.json();
         setMaintenance(data);
@@ -109,8 +119,9 @@ export default function StatusPage() {
   };
 
   const fetchUptime = async () => {
+    const caffeineUrl = getCaffeineUrl();
     try {
-      const res = await fetch(`${CAFFEINE_URL}/status/uptime`, { cache: 'no-store' });
+      const res = await fetch(`${caffeineUrl}/status/uptime`, { cache: 'no-store' });
       if (!res.ok) {
         console.warn(`[Uptime] API returned HTTP ${res.status}`);
         return;
@@ -297,15 +308,18 @@ export default function StatusPage() {
 
         <div className="section-title">Current Services</div>
         <div className="service-grid">
-          {services.map(service => (
-            <ServiceStatus 
-              key={service.id}
-              name={service.name}
-              description={service.description}
-              status={service.status}
-              latency={service.latency}
-            />
-          ))}
+          {services.map(service => {
+            const isWebMaintenance = service.id === 'web' && isUnderMaintenance;
+            return (
+              <ServiceStatus 
+                key={service.id}
+                name={service.name}
+                description={service.description}
+                status={isWebMaintenance ? 'maintenance' : service.status}
+                latency={isWebMaintenance ? 'Maintenance Active' : service.latency}
+              />
+            );
+          })}
         </div>
 
         <DiscordBanner />
