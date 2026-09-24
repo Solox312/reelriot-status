@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import ServiceStatus from '@/components/ServiceStatus';
-import { RefreshCcw } from 'lucide-react';
+import { RefreshCcw, AlertTriangle, Calendar, Clock } from 'lucide-react';
 import Image from 'next/image';
 import DiscordBanner from '@/components/DiscordBanner';
 
@@ -14,11 +14,39 @@ interface Service {
   latency: string;
 }
 
+interface MaintenanceData {
+  active: boolean;
+  status: 'under_maintenance' | 'operational';
+  current: {
+    active: boolean;
+    title: string | null;
+    message: string | null;
+    started_at: string | null;
+    estimated_end: string | null;
+  } | null;
+  scheduled: {
+    has_scheduled: boolean;
+    window: {
+      id: string;
+      title: string;
+      message: string;
+      start_time: string;
+      end_time: string;
+      affected_systems: string[];
+      countdown_seconds: number;
+    } | null;
+  };
+  timestamp: string;
+}
+
+const CAFFEINE_URL = (process.env.NEXT_PUBLIC_CAFFEINE_API_URL || 'https://caffeine.synqholdings.com').replace(/\/$/, '');
+
 export default function StatusPage() {
   const [services, setServices] = useState<Service[]>([
     { id: 'api', name: 'Main API Gateway', description: 'Core infrastructure handling all requests', status: 'operational', latency: '0ms' },
     { id: 'web', name: 'Web Platform', description: 'Primary streaming interface (reelriot.app)', status: 'operational', latency: '0ms' },
   ]);
+  const [maintenance, setMaintenance] = useState<MaintenanceData | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [mounted, setMounted] = useState(false);
   const [uptimeData, setUptimeData] = useState<{ date: string; uptime: number }[]>([]);
@@ -30,7 +58,7 @@ export default function StatusPage() {
     // Single source of truth: Caffeine API handles all the heavy lifting
     try {
       const start = Date.now();
-      const res = await fetch('https://caffeine.synqholdings.com/status/health', { cache: 'no-store' });
+      const res = await fetch(`${CAFFEINE_URL}/status/health`, { cache: 'no-store' });
       const data = await res.json();
       const latency = Date.now() - start;
       
@@ -68,9 +96,21 @@ export default function StatusPage() {
     setLastUpdated(new Date());
   };
 
+  const fetchMaintenance = async () => {
+    try {
+      const res = await fetch(`${CAFFEINE_URL}/status/maintenance`, { cache: 'no-store' });
+      if (res.ok) {
+        const data: MaintenanceData = await res.json();
+        setMaintenance(data);
+      }
+    } catch (e) {
+      console.warn('[Maintenance] Failed to fetch maintenance status:', e);
+    }
+  };
+
   const fetchUptime = async () => {
     try {
-      const res = await fetch('https://caffeine.synqholdings.com/status/uptime', { cache: 'no-store' });
+      const res = await fetch(`${CAFFEINE_URL}/status/uptime`, { cache: 'no-store' });
       if (!res.ok) {
         console.warn(`[Uptime] API returned HTTP ${res.status}`);
         return;
@@ -89,26 +129,31 @@ export default function StatusPage() {
     const timer = setTimeout(() => {
       setMounted(true);
       checkStatus();
+      fetchMaintenance();
       fetchUptime();
     }, 0);
 
     let statusInterval: ReturnType<typeof setInterval>;
+    let maintenanceInterval: ReturnType<typeof setInterval>;
     let uptimeInterval: ReturnType<typeof setInterval>;
 
     const startIntervals = () => {
       stopIntervals();
       statusInterval = setInterval(checkStatus, 30000); // Check status every 30s
+      maintenanceInterval = setInterval(fetchMaintenance, 15000); // Check maintenance every 15s
       uptimeInterval = setInterval(fetchUptime, 300000); // Check uptime every 5m
     };
 
     const stopIntervals = () => {
       if (statusInterval) clearInterval(statusInterval);
+      if (maintenanceInterval) clearInterval(maintenanceInterval);
       if (uptimeInterval) clearInterval(uptimeInterval);
     };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         checkStatus();
+        fetchMaintenance();
         fetchUptime();
         startIntervals();
       } else {
@@ -126,6 +171,7 @@ export default function StatusPage() {
     };
   }, []);
 
+  const isUnderMaintenance = maintenance?.active === true;
   const allOperational = services.every(s => s.status === 'operational');
   const anyOutage = services.some(s => s.status === 'outage');
 
@@ -136,13 +182,119 @@ export default function StatusPage() {
           <Image src="/logo.png" alt="Reelriot Logo" width={40} height={40} className="logo-img" />
           <h1>Reelriot <span style={{ color: '#8b5cf6' }}>Status</span></h1>
         </div>
-        <div className={`global-status ${!allOperational ? (anyOutage ? 'status-outage-bg' : 'status-degraded-bg') : ''}`}>
-          <div className={`pulse ${!allOperational ? 'pulse-warning' : ''}`} />
-          <span>{allOperational ? 'All Systems Operational' : (anyOutage ? 'Major Service Outage' : 'Partial Service Disruption')}</span>
+        <div className={`global-status ${isUnderMaintenance ? 'status-degraded-bg' : (!allOperational ? (anyOutage ? 'status-outage-bg' : 'status-degraded-bg') : '')}`}>
+          <div className={`pulse ${isUnderMaintenance ? 'pulse-warning' : (!allOperational ? 'pulse-warning' : '')}`} />
+          <span>
+            {isUnderMaintenance 
+              ? 'System Maintenance Active' 
+              : (allOperational ? 'All Systems Operational' : (anyOutage ? 'Major Service Outage' : 'Partial Service Disruption'))}
+          </span>
         </div>
       </div>
 
       <div className="glass-card">
+        {/* Active Maintenance Alert Banner */}
+        {isUnderMaintenance && (
+          <div 
+            style={{
+              padding: '1.25rem 1.5rem',
+              borderRadius: 'var(--radius)',
+              background: 'var(--color-warning-surface)',
+              border: '1px solid var(--color-warning-border)',
+              marginBottom: '2rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.75rem',
+            }}
+            role="alert"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ color: 'var(--color-warning-default)', display: 'flex', alignItems: 'center' }}>
+                  <AlertTriangle size={20} />
+                </div>
+                <span style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--color-warning-lightest)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {maintenance.current?.title || 'Scheduled Maintenance in Progress'}
+                </span>
+              </div>
+              {maintenance.current?.estimated_end && (
+                <div style={{
+                  fontSize: '0.75rem',
+                  fontFamily: 'monospace',
+                  fontWeight: 700,
+                  padding: '0.25rem 0.75rem',
+                  borderRadius: '99px',
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  color: 'var(--color-warning-light)',
+                  border: '1px solid var(--color-warning-border)'
+                }}>
+                  Estimated Return: {new Date(maintenance.current.estimated_end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}
+                </div>
+              )}
+            </div>
+            <p style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.85)', lineHeight: 1.5 }}>
+              {maintenance.current?.message || 'We are currently upgrading core infrastructure. Streaming and API services will return shortly.'}
+            </p>
+          </div>
+        )}
+
+        {/* Upcoming Scheduled Maintenance Window */}
+        {maintenance?.scheduled?.has_scheduled && maintenance.scheduled.window && (
+          <div 
+            style={{
+              padding: '1.25rem 1.5rem',
+              borderRadius: 'var(--radius)',
+              background: 'rgba(139, 92, 246, 0.08)',
+              border: '1px solid rgba(139, 92, 246, 0.25)',
+              marginBottom: '2rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.75rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <Calendar size={18} style={{ color: '#a78bfa' }} />
+                <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#f5f3ff', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Upcoming Scheduled Maintenance
+                </span>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#c4b5fd', fontWeight: 600 }}>
+                {new Date(maintenance.scheduled.window.start_time).toLocaleDateString([], { month: 'short', day: 'numeric' })} · {new Date(maintenance.scheduled.window.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — {new Date(maintenance.scheduled.window.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#fff' }}>
+                {maintenance.scheduled.window.title}
+              </span>
+              <p style={{ fontSize: '0.85rem', color: '#d4d4d8', lineHeight: 1.5 }}>
+                {maintenance.scheduled.window.message}
+              </p>
+            </div>
+            {maintenance.scheduled.window.affected_systems?.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', paddingTop: '0.25rem' }}>
+                <span style={{ fontSize: '0.7rem', color: '#a1a1aa', fontWeight: 700, textTransform: 'uppercase' }}>Scope:</span>
+                {maintenance.scheduled.window.affected_systems.map(sys => (
+                  <span 
+                    key={sys}
+                    style={{
+                      fontSize: '0.7rem',
+                      fontFamily: 'monospace',
+                      padding: '0.2rem 0.6rem',
+                      borderRadius: '0.375rem',
+                      background: 'rgba(139, 92, 246, 0.15)',
+                      color: '#ddd6fe',
+                      border: '1px solid rgba(139, 92, 246, 0.3)'
+                    }}
+                  >
+                    {sys}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="section-title">Current Services</div>
         <div className="service-grid">
           {services.map(service => (
@@ -202,52 +354,45 @@ export default function StatusPage() {
                 </div>
               );
             })}
-            {Object.keys(circuitData || {}).length === 0 && (
-              <div className="service-info" style={{ gridColumn: '1 / -1', textAlign: 'center', opacity: 0.5 }}>
-                No active circuits found.
-              </div>
-            )}
           </div>
         </div>
 
-        <div className="uptime-history">
-          <div className="section-title">Uptime History (Last 90 Days)</div>
-          <div className="uptime-bars">
-            {Array.isArray(uptimeData) && uptimeData.length > 0 ? (
-              uptimeData.map((day, i) => (
-                <div 
-                  key={i} 
-                  className={`uptime-bar ${day.uptime === 0 ? 'status-outage' : (day.uptime < 0.9 ? 'status-degraded' : '')}`}
-                  style={{ opacity: mounted ? (day.uptime === 0 ? 1 : day.uptime) : 0.2 }} 
-                  title={`${day.date}: ${Math.round(day.uptime * 100)}% uptime`}
-                />
-              ))
-            ) : (
-              Array.from({ length: 90 }).map((_, i) => (
-                <div key={i} className="uptime-bar" style={{ opacity: 0.1 }} />
-              ))
-            )}
+        <div className="uptime-section" style={{ marginTop: '4rem' }}>
+          <div className="section-title">System Uptime (90 Days)</div>
+          <div className="uptime-container">
+            <div className="uptime-bars">
+              {uptimeData.length > 0 ? (
+                uptimeData.map((day) => (
+                  <div 
+                    key={day.date} 
+                    className="uptime-bar"
+                    title={`${day.date}: ${(day.uptime * 100).toFixed(1)}%`}
+                    style={{
+                      height: '32px',
+                      background: day.uptime >= 0.99 ? 'var(--color-success-default)' : (day.uptime >= 0.95 ? 'var(--color-warning-default)' : 'var(--color-danger-default)'),
+                      opacity: mounted ? 1 : 0,
+                      transition: 'opacity 0.2s ease-in'
+                    }}
+                  />
+                ))
+              ) : (
+                Array.from({ length: 90 }).map((_, i) => (
+                  <div 
+                    key={i} 
+                    className="uptime-bar"
+                    style={{
+                      height: '32px',
+                      background: 'rgba(255,255,255,0.05)',
+                    }}
+                  />
+                ))
+              )}
+            </div>
+            <div className="uptime-labels">
+              <span>90 days ago</span>
+              <span>Today</span>
+            </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.75rem', fontSize: '0.75rem', color: '#71717a', fontWeight: 'bold' }}>
-            <span>90 days ago</span>
-            <span>
-              {Array.isArray(uptimeData) && uptimeData.length > 0 
-                ? (uptimeData.reduce((acc, d) => acc + (d.uptime || 0), 0) / uptimeData.length > 0.99 ? '99.9% Uptime' : 'System Operational') 
-                : 'Loading history...'}
-            </span>
-            <span>Today</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="footer" style={{ paddingBottom: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-          <RefreshCcw className="w-3 h-3" />
-          <p>
-            Last updated: {lastUpdated ? lastUpdated.toLocaleTimeString() : 'Connecting...'} 
-            <span className="dot-divider" /> 
-            Auto-refreshing every 30s
-          </p>
         </div>
       </div>
     </main>
